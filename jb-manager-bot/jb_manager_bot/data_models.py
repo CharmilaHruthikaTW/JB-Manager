@@ -60,3 +60,4 @@ class FSMOutput(BaseModel):
     menu_title: Optional[str] = None
     form_token: Optional[str] = None
     plugin_uuid: Optional[str] = None
+    metadata: Optional[dict] = None

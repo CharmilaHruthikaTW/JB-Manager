@@ -93,61 +93,79 @@ class LangchainIndexer(Indexer):
 
     def process_xslx_files(self, xslx_file_paths, counter=0):
         chunks = []
-        dataframes = []
-        default_columns = ['FAQ_ID', 'Question V1', 'Question V2', 'Question V3',
-                           'GPT V4','GPT V5', 'Answer', 'Law Name 1', 'Law Name 2', 'Law Name 3', 'Category']
+        pattern = r"(\d+)\((\d+)\)"
+        file_path = xslx_file_paths[0]
+        default_columns = [
+            "BNS Section No.",
+            "BNS Section Title",
+            "BNS Sub-Section",
+            "BNS Section Content",
+            "BNS Consequence/Punishment",
+            "IPC Section No.",
+            "IPC Section Title",
+            "IPC Section Content",
+            "IPC Consequence/Punishment",
+            "Remarks/Comments",
+        ]
 
-        # replace colomn names with default colomn names
-        for file_path in xslx_file_paths:
-            file_name = os.path.basename(file_path).replace(".xlsx", "")
-            dataframe = pd.read_excel(file_path,usecols = default_columns)
-            dataframe.columns = default_columns
-            dataframe["Area of Law"] = [file_name] * len(dataframe)
-            dataframes.append(dataframe)
-        # concat all dataframes
-        concatenated_dataframe = pd.concat(dataframes)
-        # drop all rows with empty answer
-        concatenated_dataframe.dropna(subset=['Answer'], inplace=True)
+        dataframe = pd.read_excel(file_path, usecols=default_columns)
+        dataframe.columns = default_columns
+        dataframe.dropna(axis=0, how="all", inplace=True)
+        dataframe = dataframe.fillna("")
 
-        for index in range(len(concatenated_dataframe)):
-            row = concatenated_dataframe.iloc[index]
-            question_1 = row["Question V1"]
-            question_2 = row["Question V2"]
-            question_3 = row["Question V3"]
-            question_4 = row["GPT V4"]
-            question_5 = row["GPT V5"]
-            if not pd.isna(row["Category"]) or row["Category"] != "#NAME?":
-                category = row["Category"]
+        for index in range(len(dataframe)):
+            row = dataframe.iloc[index]
+            bns_1 = str(row["BNS Section No."]).replace("S. ", "")
+            bns_2 = row["BNS Section Title"]
+            bns_3 = str(row["BNS Sub-Section"]).replace("S. ", "")
+            bns_4 = row["BNS Section Content"]
+            bns_5 = row["BNS Consequence/Punishment"]
+
+            ipc_1 = str(row["IPC Section No."]).replace("S. ", "")
+            ipc_2 = row["IPC Section Title"]
+            ipc_3 = row["IPC Section Content"]
+            ipc_4 = row["IPC Consequence/Punishment"]
+
+            bns = ""
+            if bns_3 == "" or bns_3 == "NA" or bns_3 is None:
+                bns += "BNS Section No: " + bns_1
+                metadata_bns_section_number = bns_1
+                metadata_bns_sub_section = ""
             else:
-                category = ""
-            answer = row["Answer"]
-            questions = [question for question in [question_1, question_2, question_3, question_4, question_5] if not pd.isnull(question) or question=="#NAME?"]
-            question_part = ""
-            if questions:
-                for question in questions:
-                    if question_part == "":
-                        question_part = f"Question: {question}"
-                    else:
-                        question_part += f"\nOR\nQuestion: {question}"
-                question_with_answer = f"{question_part}\nAnswer:\n{answer}"
+                bns += "BNS Section No: " + bns_3
+                matches = re.match(pattern, bns_3)
+                if matches:
+                    metadata_bns_section_number = matches.group(1)
+                    metadata_bns_sub_section = matches.group(2)
 
-                splitter_result = self.sub_splitter.split_text(question_with_answer)
-                if len(splitter_result) == 1:
-                    new_metadata = {"source": str(counter), "area_of_law": row["Area of Law"],
-                                    "category": category
-                                    }
-                    chunks.append(Document(page_content=splitter_result[0], metadata=new_metadata))
-                else:
-                    for chunk_index, chunk in enumerate(splitter_result):
-                        if chunk_index == 0:
-                            pass
-                        else:
-                            chunk = question_part + "This is a continuation of answer of above questions" + chunk
-                        new_metadata = {"source": str(counter)+"."+str(chunk_index), "area_of_law": row["Area of Law"]
-                                        , "category": category
-                                        }
-                        chunks.append(Document(page_content=chunk, metadata=new_metadata))
-                counter += 1
+            bns += "\nBNS Section Title: " + bns_2
+            bns += "\nBNS Section Content: " + bns_4
+            bns += "\nBNS Section Consequence/Punishment: " + bns_5
+
+            bns += "\n\n"
+            if (
+                (ipc_1 == "" or ipc_1 == "NA")
+                and (ipc_2 == "" or ipc_2 == "NA")
+                and (ipc_3 == "" or ipc_3 == "NA")
+            ):
+                bns += "There is no equivalent IPC section for the given BNS section."
+            else:
+                bns += "\nIPC Section No: " + ipc_1
+                bns += "\nIPC Section Title: " + ipc_2
+                bns += "\nIPC Section Content: " + ipc_3
+                bns += "\nIPC Section Consequence/Punishment: " + ipc_4
+                bns += "\nRemarks/Comments: " + row["Remarks/Comments"]
+
+            metadata = {
+                "source": str(counter),
+                "bns_section_no": metadata_bns_section_number,
+                "bns_section_title": bns_2,
+                "bns_sub_section": metadata_bns_sub_section,
+                "ipc_section_no": ipc_1,
+                "ipc_section_title": ipc_2,
+            }
+            chunks.append(Document(page_content=bns, metadata=metadata))
+            counter += 1
 
         return chunks
 

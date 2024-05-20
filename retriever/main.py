@@ -106,6 +106,7 @@ while True:
                 "collection_name",
                 "query",
                 "top_chunk_k_value",
+                "metadata",
             }
         )
         # Doubt: What is metadata in querying_with_langchain?

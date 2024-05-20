@@ -248,13 +248,16 @@ async def flow_loop():
                         language_topic, kafka_out_msg.model_dump_json()
                     )
                 elif fsm_output.dest == "rag":
+                    logger.info(f"raginput metadata: {fsm_output.metadata}")
+                    logger.info(f"fsmoutput: {fsm_output}")
                     rag_input = RAGInput(
                         source="flow",
                         session_id=session_id,
                         turn_id=flow_input.turn_id,
-                        collection_name="KB_Law_Files",
+                        collection_name="KB_ipc",
                         query=msg_text,
                         top_chunk_k_value=5,
+                        metadata=fsm_output.metadata
                     )
                     logger.info("FLOW -- %s --> %s", rag_topic, rag_input)
                     producer.send_message(rag_topic, rag_input.model_dump_json())

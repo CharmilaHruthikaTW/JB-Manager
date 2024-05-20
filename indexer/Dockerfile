@@ -26,5 +26,6 @@ COPY --from=builder ${VIRTUAL_ENV} ${VIRTUAL_ENV}
 
 COPY ./indexer .
 COPY ./lib lib
+COPY ./data data
 
 CMD ["python", "-u", "-m", "indexing"]
