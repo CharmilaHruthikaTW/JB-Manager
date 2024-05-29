@@ -96,75 +96,88 @@ class LangchainIndexer(Indexer):
         pattern = r"(\d+)\((\d+)\)"
         file_path = xslx_file_paths[0]
         default_columns = [
-            "BNS Section No.",
-            "BNS Section Title",
-            "BNS Sub-Section",
-            "BNS Section Content",
-            "BNS Consequence/Punishment",
-            "IPC Section No.",
-            "IPC Section Title",
-            "IPC Section Content",
-            "IPC Consequence/Punishment",
+            "BNSS Section No.",
+            "BNSS Section Title",
+            "BNSS Sub-Section",
+            "BNSS Section Content",
+            "CrPC Section No.",
+            "CrPC Section Title",
+            "CrPC Sub-Section",
+            "CrPC Section Content",
             "Remarks/Comments",
         ]
 
         dataframe = pd.read_excel(file_path, usecols=default_columns)
         dataframe.columns = default_columns
+        # dataframe.dropna(subset=["BNSS Section No."], inplace=True)
         dataframe.dropna(axis=0, how="all", inplace=True)
         dataframe = dataframe.fillna("")
 
         for index in range(len(dataframe)):
             row = dataframe.iloc[index]
-            bns_1 = str(row["BNS Section No."]).replace("S. ", "")
-            bns_2 = row["BNS Section Title"]
-            bns_3 = str(row["BNS Sub-Section"]).replace("S. ", "")
-            bns_4 = row["BNS Section Content"]
-            bns_5 = row["BNS Consequence/Punishment"]
+            bnss_1 = str(row["BNSS Section No."]).replace("S. ", "")
+            bnss_2 = row["BNSS Section Title"]
+            bnss_3 = str(row["BNSS Sub-Section"]).replace("S. ", "")
+            bnss_4 = row["BNSS Section Content"]
 
-            ipc_1 = str(row["IPC Section No."]).replace("S. ", "")
-            ipc_2 = row["IPC Section Title"]
-            ipc_3 = row["IPC Section Content"]
-            ipc_4 = row["IPC Consequence/Punishment"]
+            crpc_1 = str(row["CrPC Section No."]).replace("S. ", "")
+            crpc_2 = row["CrPC Section Title"]
+            crpc_3 = str(row["CrPC Sub-Section"]).replace("S. ", "")
+            crpc_4 = row["CrPC Section Content"]
 
-            bns = ""
-            if bns_3 == "" or bns_3 == "NA" or bns_3 is None:
-                bns += "BNS Section No: " + bns_1
-                metadata_bns_section_number = bns_1
-                metadata_bns_sub_section = ""
+            bnss = ""
+            if bnss_3 == "" or bnss_3 == "NA" or bnss_3 is None:
+                bnss += "*BNSS Section No:* " + bnss_1
+                metadata_bnss_section_number = bnss_1
+                metadata_bnss_sub_section = ""
             else:
-                bns += "BNS Section No: " + bns_3
-                matches = re.match(pattern, bns_3)
+                bnss += "*BNSS Section No:* " + bnss_3
+                matches = re.match(pattern, bnss_3)
                 if matches:
-                    metadata_bns_section_number = matches.group(1)
-                    metadata_bns_sub_section = matches.group(2)
+                    metadata_bnss_section_number = matches.group(1)
+                    metadata_bnss_sub_section = matches.group(2)
 
-            bns += "\nBNS Section Title: " + bns_2
-            bns += "\nBNS Section Content: " + bns_4
-            bns += "\nBNS Section Consequence/Punishment: " + bns_5
+            bnss += "\n*BNSS Section Title:* " + bnss_2
+            bnss += "\n*BNSS Section Content:* \n" + bnss_4
 
-            bns += "\n\n"
+            bnss += "\n\n"
             if (
-                (ipc_1 == "" or ipc_1 == "NA")
-                and (ipc_2 == "" or ipc_2 == "NA")
-                and (ipc_3 == "" or ipc_3 == "NA")
+                (crpc_1 == "" or crpc_1 == "NA")
+                and (crpc_2 == "" or crpc_2 == "NA")
+                and (crpc_3 == "" or crpc_3 == "NA")
+                and (crpc_4 == "" or crpc_4 == "NA")
             ):
-                bns += "There is no equivalent IPC section for the given BNS section."
+                bnss += (
+                    "There is no equivalent CrPC section for the given BNSS section."
+                )
+
+            elif crpc_3 == "" or crpc_3 == "NA" or crpc_3 is None:
+                bnss += "\n*CrPC Section No:* " + crpc_1
+                metadata_crpc_section_number = crpc_1
+                metadata_crpc_sub_section = ""
+
             else:
-                bns += "\nIPC Section No: " + ipc_1
-                bns += "\nIPC Section Title: " + ipc_2
-                bns += "\nIPC Section Content: " + ipc_3
-                bns += "\nIPC Section Consequence/Punishment: " + ipc_4
-                bns += "\nRemarks/Comments: " + row["Remarks/Comments"]
+                bnss += "\n*CrPC Section No:* " + crpc_3
+                matches = re.match(pattern, crpc_3)
+                if matches:
+                    metadata_crpc_section_number = matches.group(1)
+                    metadata_crpc_sub_section = matches.group(2)
+
+            bnss += "\n*CrPC Section Title:* " + crpc_2
+            bnss += "\n*CrPC Section Content:* \n" + crpc_4
+            bnss += "\n*Remarks/Comments:* " + row["Remarks/Comments"]
 
             metadata = {
                 "source": str(counter),
-                "bns_section_no": metadata_bns_section_number,
-                "bns_section_title": bns_2,
-                "bns_sub_section": metadata_bns_sub_section,
-                "ipc_section_no": ipc_1,
-                "ipc_section_title": ipc_2,
+                "bnss_section_no": metadata_bnss_section_number,
+                "bnss_section_title": bnss_2,
+                "bnss_sub_section": metadata_bnss_sub_section,
+                "crpc_section_no": metadata_crpc_section_number,
+                "crpc_sub_section": metadata_crpc_sub_section,
+                "crpc_section_title": crpc_2,
+                # "category": "",
             }
-            chunks.append(Document(page_content=bns, metadata=metadata))
+            chunks.append(Document(page_content=bnss, metadata=metadata))
             counter += 1
 
         return chunks
@@ -194,7 +207,7 @@ class LangchainIndexer(Indexer):
         # document_collection = DocumentCollection(collection_name,
         #                                          LocalStorage(os.environ["DOCUMENT_LOCAL_STORAGE_PATH"]),
         #                                          LocalStorage(os.environ["DOCUMENT_LOCAL_STORAGE_PATH"]))
-        
+
         xslx_file_paths = []
         source_files = []
         print("Inside Indexer-1")
